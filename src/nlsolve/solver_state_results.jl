@@ -13,6 +13,10 @@ function SolverState(i, fnorm, stepnorm)
     SolverState(Int(i), fnorm, stepnorm, Dict())
 end
 
+function SolverState(i, fnorm, stepnorm, metadata)
+    SolverState(Int(i), promote(fnorm, stepnorm)..., metadata)
+end
+
 struct SolverTrace
     states::Vector{SolverState}
 end
@@ -78,6 +82,39 @@ mutable struct SolverResults{rT<:Real,T<:Union{rT,Complex{rT}},I<:AbstractArray{
     trace::SolverTrace
     f_calls::Int
     g_calls::Int
+    # provide inner constructor (default inner constructor doesn't work for all cases)
+    function SolverResults(method, initial_x, zero, residual_norm, iterations, x_converged, 
+        xtol, f_converged, ftol, trace, f_calls, g_calls)
+
+        # real type
+        rT = promote_type(real(eltype(initial_x)), real(eltype(zero)), typeof(residual_norm), typeof(xtol), typeof(ftol))
+        
+        # real/complex type
+        if promote_type(eltype(initial_x), eltype(zero)) <: Complex
+            T = Complex{rT}
+        else
+            T = rT
+        end
+
+        # correct initial guess type
+        if !(eltype(initial_x) <: T)
+            initial_x = T.(initial_x)
+        end
+
+        # correct zero element type (if necessary)
+        if !(eltype(zero) <: T)
+            zero = T.(zero)
+        end
+
+        # initial guess type
+        I = typeof(initial_x)
+
+        # zero type
+        Z = typeof(initial_x)
+
+        return new{rT,T,I,Z}(method, initial_x, zero, residual_norm, iterations, 
+            x_converged, xtol, f_converged, ftol, trace, f_calls, g_calls)
+    end
 end
 
 function converged(r::SolverResults)
